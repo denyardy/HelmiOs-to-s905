@@ -10,7 +10,7 @@ on:
         default: 'false'
 
 env:
-  REPO_URL: https://github.com/radityabh/amlogic-s9xxx-openwrt
+  REPO_URL: https://github.com/denyardy/amlogic-s9xxx-openwrt
   REPO_BRANCH: main
   UPLOAD_FIRMWARE: false
   UPLOAD_RELEASE: true
@@ -61,7 +61,7 @@ jobs:
         [ -d openwrt-armvirt ] || mkdir -p openwrt-armvirt
         wget -P openwrt-armvirt https://github.com/helmiau/HelmiWrt-OS/releases/latest/download/helmiwrt-bcm27xx-bcm2710-rpi-3-rootfs.tar.gz
         sudo chmod +x makeHelmi
-        sudo ./makeHelmi -d -b s905x3_s905x -k 5.13.14_5.4.147 -a false
+        sudo ./makeHelmi -d -b s905x -k 5.4.147 -a false
         echo "PACKAGED_OUTPUTPATH=${PWD}/out" >> $GITHUB_ENV
         echo "PACKAGED_OUTPUTDATE=$(date +"%Y.%m.%d.%H%M")" >> $GITHUB_ENV
         echo "::set-output name=status::success"
@@ -75,13 +75,13 @@ jobs:
       if: steps.build.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
       run: |
         curl -fsSL git.io/file-transfer | sh
-        ./transfer cow --block 2621440 -s -p 64 --no-progress ${{ env.PACKAGED_OUTPUTPATH }}/{openwrt_s9xxx_*,openwrt_n1_*} 2>&1 | tee cowtransfer.log
+        ./transfer cow --block 2621440 -s -p 64 --no-progress ${{ env.PACKAGED_OUTPUTPATH }}/{openwrt_s905x_*,openwrt_n1_*} 2>&1 | tee cowtransfer.log
         echo "COW_URL=$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_ENV
     - name: Upload OpenWrt Firmware to WeTransfer
       if: steps.build.outputs.status == 'success' && env.UPLOAD_WETRANSFER == 'true' && !cancelled()
       run: |
         curl -fsSL git.io/file-transfer | sh
-        ./transfer wet -s -p 16 --no-progress ${{ env.PACKAGED_OUTPUTPATH }}/{openwrt_s9xxx_*,openwrt_n1_*} 2>&1 | tee wetransfer.log
+        ./transfer wet -s -p 16 --no-progress ${{ env.PACKAGED_OUTPUTPATH }}/{openwrt_s905x_*,openwrt_n1_*} 2>&1 | tee wetransfer.log
         echo "WET_URL=$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_ENV
     - name: Upload OpenWrt Firmware to Release
       uses: softprops/action-gh-release@v1
@@ -89,10 +89,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: Helmi_s9xxx_${{ env.PACKAGED_OUTPUTDATE }}
+        tag_name: Helmi_s905x_${{ env.PACKAGED_OUTPUTDATE }}
         files: ${{ env.PACKAGED_OUTPUTPATH }}/*
         body: |
-          This is Openwrt HelmiOs for Amlogic S9xxx STB
+          This is Openwrt HelmiOs for Amlogic s905x STB
           * Firmware information
           Default IP: 192.168.1.1
           Default username: root
