@@ -16,7 +16,7 @@ on:
 #    types: started
 
 env:
-  REPO_URL: https://github.com/radityabh/amlogic-s9xxx-openwrt
+  REPO_URL: https://github.com/ophub/amlogic-s9xxx-openwrt
   REPO_BRANCH: main
   HELMIWRT_REL: https://github.com/helmiau/HelmiWrt-OS/releases/download/helmiwrt
   HELMIWRT_FILENAME: helmiwrt-bcm27xx-bcm2710-rpi-3-rootfs.tar.gz
@@ -84,7 +84,7 @@ jobs:
             wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +%Y.%m.%d -d "3 day ago")/$HELMIWRT_FILENAME
         fi
         sudo chmod +x makeHelmi
-        sudo ./makeHelmi -d -b s905x3_s905x -k 5.13.14_5.4.147_5.14.5 -a false
+        sudo ./makeHelmi -d -b s905x -k 5.4.150 -a false
         echo "PACKAGED_OUTPUTPATH=${PWD}/out" >> $GITHUB_ENV
         echo "PACKAGED_OUTPUTDATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
         find . -type f -name '$HELMIWRT_FILENAME' -exec rm "{}" \;
