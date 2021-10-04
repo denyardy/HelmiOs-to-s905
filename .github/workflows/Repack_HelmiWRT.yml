@@ -52,7 +52,7 @@ jobs:
       run: |
         df -hT $PWD
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-        sed -i '/HelmiWrt_/c\ build_image_file="${out_path}/helmiwrt-\${build_op}-k\${kernel}.img"' openwrt/makeHelmi
+        sed -i '/HelmiWrt_/c\ build_image_file="${out_path}/helmiwrt-\${build_op}-k\${kernel}.img"' openwrt/make
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         
     - name: Install Feeds
@@ -83,8 +83,8 @@ jobs:
             echo "3 days ago build found ! Using this build for repack."
             wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +%Y.%m.%d -d "3 day ago")/$HELMIWRT_FILENAME
         fi
-        sudo chmod +x makeHelmi
-        sudo ./makeHelmi -d -b s905x -k 5.4.150 -a false
+        sudo chmod +x make
+        sudo ./make -d -b s905x -k 5.4.150 -a false
         echo "PACKAGED_OUTPUTPATH=${PWD}/out" >> $GITHUB_ENV
         echo "PACKAGED_OUTPUTDATE=$(date +"%Y.%m.%d.%H:%M")" >> $GITHUB_ENV
         find . -type f -name '$HELMIWRT_FILENAME' -exec rm "{}" \;
