@@ -66,7 +66,6 @@ jobs:
       run: |
         cd $OPENWRTROOT
         [ -d openwrt-armvirt ] || mkdir -p openwrt-armvirt
-        cp -f openwrt/bin/targets/*/*/*.tar.gz openwrt-armvirt/ && sync
         if wget -S --spider $HELMIWRT_REL-$(date +"%Y.%m.%d")/$HELMIWRT_FILENAME 2>&1 | grep -q 'HTTP/1.1 200 OK'; then
             #Today Build
             echo "Today build found ! Using this build for repack."
