@@ -1,0 +1,134 @@
+#=================================================
+# https://github.com/P3TERX/Actions-OpenWrt
+# Description: Repack HelmiWrt OS for s905x devices using GitHub Actions
+# Lisence: MIT
+# Repacker : Raditya Budi Handoko <https://github.com/radityabh>
+# HelmiWrt OS by helmiau.com   
+#=================================================
+
+name: RPK HelmiWrt OS for s905x
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 59 23 * * *
+#  watch:
+#    types: started
+
+env:
+  REPO_URL: https://github.com/ophub/amlogic-s9xxx-openwrt
+  REPO_BRANCH: main
+  HELMIWRT_REL: https://github.com/helmiau/HelmiWrt-OS-Immortal/releases/download/helmiwrt-2022.04.15/
+  HELMIWRT_FILENAME: helmiwrt-21.02-bcm27xx-bcm2710-rpi-3-rootfs.tar.gz
+  UPLOAD_RELEASE: true
+  RECENT_LASTEST: 3
+  TZ: Asia/Jakarta
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    if: github.event.repository.owner.id == github.event.sender.id
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        sudo -E apt-get -qq update
+        sudo -E apt-get -qq install $(curl -fsSL git.io/ubuntu-2004-openwrt)
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        echo "COMPILE_STARTINGTIME=$(date +"%Y.%m.%d.%H:%M")" >> $GITHUB_ENV
+        
+    - name: Clone source code
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+        sed -i '/HelmiWrt_/c\ build_image_file="${out_path}/helmiwrt-\${build_op}-k\${kernel}.img"' openwrt/make
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        
+    - name: Install Feeds
+      id: feeds
+      run: |
+        cd openwrt
+        echo "OPENWRTROOT=$PWD" >> $GITHUB_ENV
+        
+    - name: Repacking HelmiWrt firmware
+      id: build
+      run: |
+        cd $OPENWRTROOT
+        [ -d openwrt-armvirt ] || mkdir -p openwrt-armvirt
+        if wget -S --spider $HELMIWRT_REL-$(date +"%Y.%m.%d")/$HELMIWRT_FILENAME 2>&1 | grep -q 'HTTP/1.1 200 OK'; then
+            #Today Build
+            echo "Today build found ! Using this build for repack."
+            wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +"%Y.%m.%d")/$HELMIWRT_FILENAME
+        elif wget -S --spider $HELMIWRT_REL-$(date +%Y.%m.%d -d "1 day ago")/$HELMIWRT_FILENAME 2>&1 | grep -q 'HTTP/1.1 200 OK'; then
+            #Yesterday
+            echo "Yesterday build found ! Using this build for repack."
+            wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +%Y.%m.%d -d "1 day ago")/$HELMIWRT_FILENAME
+        #elif wget -S --spider $HELMIWRT_REL-$(date +%Y.%m.%d -d "2 day ago")/$HELMIWRT_FILENAME 2>&1 | grep -q 'HTTP/1.1 200 OK'; then
+            #Before Yesterday
+            #echo "2 days ago build found ! Using this build for repack."
+            #wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +%Y.%m.%d -d "2 day ago")/$HELMIWRT_FILENAME
+        #elif wget -S --spider $HELMIWRT_REL-$(date +%Y.%m.%d -d "3 day ago")/$HELMIWRT_FILENAME 2>&1 | grep -q 'HTTP/1.1 200 OK'; then
+            #2 Days Before Yesterday
+            #echo "3 days ago build found ! Using this build for repack."
+            #wget -q --show-progress -P openwrt-armvirt $HELMIWRT_REL-$(date +%Y.%m.%d -d "3 day ago")/$HELMIWRT_FILENAME
+        fi
+        sudo chmod +x make
+        sudo ./make -d -b s905x -k 5.4.160 -a false
+        echo "PACKAGED_OUTPUTPATH=${PWD}/out" >> $GITHUB_ENV
+        echo "PACKAGED_OUTPUTDATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
+        find . -type f -name '$HELMIWRT_FILENAME' -exec rm "{}" \;
+        echo "::set-output name=status::success"
+
+    - name: Delete Older Releases and Tags
+      uses: dev-drprasad/delete-older-releases@v0.2.0
+      if: steps.build.outputs.status == 'success' && !cancelled()
+      with:
+        keep_latest: 10
+        delete_tags: true
+        delete_tag_pattern: helmiwrt
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate New Release Tag
+      id: tag
+      run: |
+        sleep 20
+        echo "::set-output name=release_tag::helmiwrt-${{ env.PACKAGED_OUTPUTDATE }}"
+        touch release.txt
+        echo "::set-output name=status::success"
+
+    - name: Upload OpenWrt Firmware to Release
+      id: upload
+      uses: softprops/action-gh-release@v1
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: helmiwrt-s905x_${{ env.PACKAGED_OUTPUTDATE }}
+        files: ${{ env.PACKAGED_OUTPUTPATH }}/*
+        body: |
+          HelmiWrt OS Repacked for Amlogic S9xxx STB
+          
+          * Firmware information
+          Default IP: 192.168.1.1
+          Default username: root
+          Default password: password
+          
+          [Read more about this firmware and guides here](https://www.helmiau.com/blog/helmiwrt-os)
+
+    - name: Delete Workflow Runs
+      uses: GitRML/delete-workflow-runs@main
+      with:
+        retain_days: 1
+        keep_minimum_runs: 3
